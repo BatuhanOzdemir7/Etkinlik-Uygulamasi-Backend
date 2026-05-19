@@ -21,18 +21,27 @@ public class UserRestController {
     final UserService UserService;
 
     @PostMapping("/register")
-    public ResponseEntity register(@Valid @RequestBody UserRegisterRequestDto userRegisterRequestDto){
+    public ResponseEntity register(@Valid @RequestBody UserRegisterRequestDto userRegisterRequestDto) {
         return UserService.register(userRegisterRequestDto);
     }
 
     @PostMapping("/login")
-    public ResponseEntity login(@Valid @RequestBody UserLoginRequestDto userLoginRequestDto){
+    public ResponseEntity login(@Valid @RequestBody UserLoginRequestDto userLoginRequestDto) {
         return UserService.login(userLoginRequestDto);
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Object> logout(){
-        // Not: Controller içindeki servis değişkeninin adına göre (UserService veya userService) çağırımı yapmalısın.
+    public ResponseEntity<Object> logout() {
         return UserService.logout();
+    }
+
+    /**
+     * Oturum açmış kullanıcının kendi bilgilerini çekmesi için endpoint.
+     * SessionFilter tarafından korunur — oturumsuz istekler 401 alır.
+     * Response: { "success": true, "user": { id, name, surname, email, phone } }
+     */
+    @GetMapping("/me")
+    public ResponseEntity<Object> me() {
+        return UserService.me();
     }
 }

@@ -25,7 +25,15 @@ public class SessionFilter implements Filter {
         HttpServletResponse response = (HttpServletResponse) servletResponse;
 
         String urlPath = request.getRequestURI();
-        String[] freeUrls = {"/user", "/kvkk", "/swagger-ui", "/v3/api-docs"};
+
+        // Sadece bu tam path'ler korumasız — /user/me bu listede YOK, yani korumalı
+        String[] freeUrls = {
+                "/user/register",
+                "/user/login",
+                "/kvkk",
+                "/swagger-ui",
+                "/v3/api-docs"
+        };
 
         boolean isAuth = true;
         for (String freeUrl : freeUrls) {
@@ -76,7 +84,6 @@ public class SessionFilter implements Filter {
         // 🔐 AUTH KONTROL
         if (isAuth) {
             if (user == null) {
-
                 logger.warn("Unauthorized access -> IP: {}, URL: {}", ipAddress, urlPath);
 
                 response.setContentType("application/json");

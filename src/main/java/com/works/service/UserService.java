@@ -4,6 +4,7 @@ import com.works.entity.User;
 import com.works.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.mindrot.jbcrypt.BCrypt;
@@ -25,7 +26,6 @@ public class UserService {
     ModelMapper modelMapper = new ModelMapper();
 
     public ResponseEntity register(UserRegisterRequestDto userRegisterRequestDto) {
-        // Güvenlik Kontrolü: Aktif bir oturum var mı?
         if (request.getSession().getAttribute("user") != null) {
             return ResponseEntity.<Object>status(400).body(Map.of(
                     "success", false,
@@ -34,7 +34,6 @@ public class UserService {
         }
         List<User> UserList = UserRepository.findByEmailEqualsOrPhoneEqualsAllIgnoreCase(userRegisterRequestDto.getEmail(), userRegisterRequestDto.getPhone());
         if (UserList.size() > 0) {
-            // daha önceden bu email veya phone kullanılmış demektir.
             Map<String, Object> hm = Map.of("success", false, "message", "This email or phone number is already in use.");
             return ResponseEntity.badRequest().body(hm);
         }
@@ -42,19 +41,11 @@ public class UserService {
         String hashPassword = BCrypt.hashpw(user.getPassword(), BCrypt.gensalt());
         user.setPassword(hashPassword);
         user.setEnabled(true);
-        /*
-        Projenin geliştirme aşamasında, temel fonksiyonların ve uçtan uca akışların hızlıca test edilebilmesi adına kullanıcı aktivasyon süreci geçici olarak otomatikleştirilmiştir.
-        Bu doğrultuda, UserService katmanında yapılan düzenlemeyle yeni kayıt olan tüm kullanıcıların enabled durumu varsayılan olarak true değerine atanmaktadır. Bu yaklaşım, e-posta
-        doğrulama gibi dış servislerin henüz entegre edilmediği bu fazda geliştirme verimliliğini artırmaktadır. Güvenlik protokolleri tamamlandığında, sistem gerçek senaryolara uygun olan
-        'onaylı kayıt' modeline geri çekilecektir.
-         */
         UserRepository.save(user);
         return ResponseEntity.ok().body(user);
     }
 
-    // login
-    public ResponseEntity login(UserLoginRequestDto UserLoginRequestDto){
-        // Güvenlik Kontrolü: Aktif bir oturum var mı?
+    public ResponseEntity login(UserLoginRequestDto UserLoginRequestDto) {
         if (request.getSession().getAttribute("user") != null) {
             return ResponseEntity.<Object>status(400).body(Map.of(
                     "success", false,
@@ -62,10 +53,10 @@ public class UserService {
             ));
         }
         Optional<User> optionalUser = UserRepository.findByEnabledTrueAndEmailIgnoreCaseOrEnabledTrueAndPhoneIgnoreCase(UserLoginRequestDto.getUsername(), UserLoginRequestDto.getUsername());
-        if(optionalUser.isPresent()){
+        if (optionalUser.isPresent()) {
             User User = optionalUser.get();
             boolean isMatch = BCrypt.checkpw(UserLoginRequestDto.getPassword(), User.getPassword());
-            if(isMatch){
+            if (isMatch) {
                 UserResponseDto userResponseDto = modelMapper.map(User, UserResponseDto.class);
                 request.getSession().setAttribute("user", userResponseDto);
                 return ResponseEntity.ok().body(userResponseDto);
@@ -75,17 +66,27 @@ public class UserService {
         return ResponseEntity.badRequest().body(hm);
     }
 
-    // logout
     public ResponseEntity<Object> logout() {
-        // Mevcut oturumu getir, yoksa yeni bir oturum oluşturma (false parametresi)
         jakarta.servlet.http.HttpSession session = request.getSession(false);
-
         if (session != null) {
-            // Oturumu ve bellekteki "user" gibi tüm verileri tamamen yok et
             session.invalidate();
         }
-
         Map<String, Object> hm = Map.of("success", true, "message", "Başarıyla çıkış yapıldı.");
         return ResponseEntity.ok().body(hm);
+    }
+
+    /**
+     * Oturum açmış kullanıcının bilgilerini döndürür.
+     * SessionFilter /user/me'yi koruduğu için buraya sadece
+     * geçerli oturumu olan istekler ulaşabilir.
+     */
+    public ResponseEntity<Object> me() {
+        UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
+        // SessionFilter zaten null kontrolü yapıyor ama defansif olarak tekrar kontrol ediyoruz
+        if (sessionUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("success", false, "message", "Oturum bulunamadı."));
+        }
+        return ResponseEntity.ok(Map.of("success", true, "user", sessionUser));
     }
 }
