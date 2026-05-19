@@ -36,14 +36,14 @@ Proje, gereksinim dokümanına sadık kalınarak **Frontend ve Backend ayrı pro
 * `POST /user/logout` -> Aktif kullanıcı oturumunu `session.invalidate()` ile tamamen yok eder.
 
 ### 📅 Etkinlik API (`/event`)
-* `POST /event/create` -> Yeni bir etkinlik ekler. Yeni etkinlikler varsayılan olarak **TASLAK** statüsünde başlar.
+* `POST /event/create` -> Yeni bir etkinlik ekler. Yeni etkinlikler varsayılan olarak **DRAFT** statüsünde başlar.
 * `POST /event/createAll` -> Toplu etkinlik ekleme operasyonlarını yürütür.
-* `GET /event/list?page=X` -> Sadece **YAYINDA** durumundaki etkinlikleri Spring Data `Pageable` mekanizması ile 10'ar adetlik sayfalar halinde (Pagination) listeler.
+* `GET /event/list?page=X` -> Sadece **PUBLISHED** durumundaki etkinlikleri Spring Data `Pageable` mekanizması ile 10'ar adetlik sayfalar halinde (Pagination) listeler.
 * `GET /event/search?page=X&q=kelime&sortDir=asc` -> Yayındaki etkinlikler içerisinde başlık ve açıklama alanlarında büyük/küçük harf duyarsız arama yapar, tarihe göre sıralı sayfalar döner.
 * `GET /event/detail/{id}` -> Belirli bir etkinliğin detay bilgilerini getirir.
 * `PUT /event/update` -> Etkinlik bilgilerini günceller. **Güvenlik Kontrolü:** Etkinliği sadece asıl sahibi (Owner) güncelleyebilir, aksi halde `403 Forbidden` döner.
 * `DELETE /event/deleteOne/{id}` -> Etkinliği veritabanından siler. **Güvenlik Kontrolü:** Sadece etkinliğin sahibi silebilir.
-* `PUT /event/change-status/{id}?status=YAYINDA` -> Etkinlik sahibinin etkinliğini *Yayında*, *Yayın Durduruldu* veya *Arşivlendi* durumlarına geçirmesini sağlar.
+* `PUT /event/change-status/{id}?status=PUBLISHED` -> Etkinlik sahibinin etkinliğini *PUBLISHED*, *Yayın Durduruldu* veya *Arşivlendi* durumlarına geçirmesini sağlar.
 
 ### 🤝 Katılım API (`/event`)
 * `POST /event/join/{id}` -> Oturum açmış kullanıcının bir etkinliğe katılmasını sağlar. Mükerrer (çift) kayıt olmayı otomatik engeller.

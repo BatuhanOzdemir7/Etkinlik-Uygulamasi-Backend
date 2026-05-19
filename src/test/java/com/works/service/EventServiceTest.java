@@ -430,7 +430,7 @@ public class EventServiceTest {
         when(eventRepository.findById(100L)).thenReturn(Optional.of(event));
 
         // ACT
-        ResponseEntity<Object> response = eventService.changeStatus(100L, com.works.entity.EventStatus.YAYINDA);
+        ResponseEntity<Object> response = eventService.changeStatus(100L, com.works.entity.EventStatus.PUBLISHED);
 
         // ASSERT
         assertEquals(200, response.getStatusCode().value());
@@ -459,7 +459,7 @@ public class EventServiceTest {
         when(eventRepository.findById(100L)).thenReturn(Optional.of(event));
 
         // ACT
-        ResponseEntity<Object> response = eventService.changeStatus(100L, com.works.entity.EventStatus.YAYINDA);
+        ResponseEntity<Object> response = eventService.changeStatus(100L, com.works.entity.EventStatus.PUBLISHED);
 
         // ASSERT
         assertEquals(403, response.getStatusCode().value());
@@ -521,7 +521,7 @@ public class EventServiceTest {
         List<Event> mockEventList = List.of(event1, event2);
         org.springframework.data.domain.Page<Event> mockPage = new PageImpl<>(mockEventList);
 
-        when(eventRepository.findByStatus(eq(EventStatus.YAYINDA), any(PageRequest.class)))
+        when(eventRepository.findByStatus(eq(EventStatus.PUBLISHED), any(PageRequest.class)))
                 .thenReturn(mockPage);
 
         // Act

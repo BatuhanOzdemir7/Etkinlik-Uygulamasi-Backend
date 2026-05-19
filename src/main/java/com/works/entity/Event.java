@@ -56,6 +56,6 @@ public class Event {
     private Set<User> participants = new HashSet<>();
 
     @Enumerated(EnumType.STRING)
-    private EventStatus status = EventStatus.TASLAK; // Yeni oluşturulan etkinlikler varsayılan olarak "TASLAK" başlar.
+    private EventStatus status = EventStatus.DRAFT; // Yeni oluşturulan etkinlikler varsayılan olarak "DRAFT" başlar.
 
 }

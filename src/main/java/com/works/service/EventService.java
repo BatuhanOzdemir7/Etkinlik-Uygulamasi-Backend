@@ -125,7 +125,7 @@ public class EventService {
     }
 
     public Page<Event> eventList(int page) {
-        return eventRepository.findByStatus(EventStatus.YAYINDA, PageRequest.of(page, 10));
+        return eventRepository.findByStatus(EventStatus.PUBLISHED, PageRequest.of(page, 10));
     }
 
     public Page<Event> search(String q, int page, String sortDir) {
@@ -134,7 +134,7 @@ public class EventService {
                 "eventDate"
         );
         Pageable pageable = PageRequest.of(page, 10, sort);
-        return eventRepository.searchActiveEvents(EventStatus.YAYINDA, q, pageable);
+        return eventRepository.searchActiveEvents(EventStatus.PUBLISHED, q, pageable);
     }
 
     public ResponseEntity<Object> joinEvent(Long eventId) {
@@ -216,13 +216,13 @@ public class EventService {
     public Page<Event> getMyDrafts(int page) {
         UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
         Pageable pageable = PageRequest.of(page, 10);
-        return eventRepository.findByOwnerIdAndStatus(sessionUser.getId(), EventStatus.TASLAK, pageable);
+        return eventRepository.findByOwnerIdAndStatus(sessionUser.getId(), EventStatus.DRAFT, pageable);
     }
 
     public Page<Event> getMyArchives(int page) {
         UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
         Pageable pageable = PageRequest.of(page, 10);
-        return eventRepository.findByOwnerIdAndStatus(sessionUser.getId(), EventStatus.ARSIVLENDI, pageable);
+        return eventRepository.findByOwnerIdAndStatus(sessionUser.getId(), EventStatus.ARCHIVED, pageable);
     }
 
     public ResponseEntity<Object> getParticipants(Long eventId) {
