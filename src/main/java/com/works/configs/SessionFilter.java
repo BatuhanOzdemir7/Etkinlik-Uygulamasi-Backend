@@ -24,16 +24,13 @@ public class SessionFilter implements Filter {
         HttpServletRequest request = (HttpServletRequest) servletRequest;
         HttpServletResponse response = (HttpServletResponse) servletResponse;
 
-        String urlPath = request.getRequestURI();
+        // BFCache ve geri tuşu zafiyetini kapat
+        response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        response.setHeader("Pragma", "no-cache");
+        response.setDateHeader("Expires", 0);
 
-        // Sadece bu tam path'ler korumasız — /user/me bu listede YOK, yani korumalı
-        String[] freeUrls = {
-                "/user/register",
-                "/user/login",
-                "/kvkk",
-                "/swagger-ui",
-                "/v3/api-docs"
-        };
+        String urlPath = request.getRequestURI();
+        String[] freeUrls = {"/user", "/kvkk", "/swagger-ui", "/v3/api-docs"};
 
         boolean isAuth = true;
         for (String freeUrl : freeUrls) {
@@ -43,7 +40,6 @@ public class SessionFilter implements Filter {
             }
         }
 
-        // 🔹 CLIENT BİLGİLERİ
         String ipAddress = getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
         String method = request.getMethod();
@@ -56,46 +52,35 @@ public class SessionFilter implements Filter {
         HttpSession session = request.getSession(false);
         Object user = (session != null) ? session.getAttribute("user") : null;
 
-        // ✅ INFO LOG
         logger.info("""
-                ====== REQUEST LOG ======
-                Time      : {}
-                IP        : {}
-                Method    : {}
-                URL       : {}
-                Query     : {}
-                Referer   : {}
-                UserAgent : {}
-                Session   : {}
-                User      : {}
-                ==========================
-                """,
-                time,
-                ipAddress,
-                method,
-                urlPath,
-                query,
-                referer,
-                userAgent,
+            ====== REQUEST LOG ======
+            Time      : {}
+            IP        : {}
+            Method    : {}
+            URL       : {}
+            Query     : {}
+            Referer   : {}
+            UserAgent : {}
+            Session   : {}
+            User      : {}
+            ==========================
+            """,
+                time, ipAddress, method, urlPath, query, referer, userAgent,
                 (session != null ? session.getId() : "No Session"),
                 (user != null ? user : "Anonymous")
         );
 
-        // 🔐 AUTH KONTROL
         if (isAuth) {
             if (user == null) {
                 logger.warn("Unauthorized access -> IP: {}, URL: {}", ipAddress, urlPath);
-
                 response.setContentType("application/json");
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-
                 String jsonResponse = """
-                        {
-                          "success": false,
-                          "message": "Unauthorized access. Please log in."
-                        }
-                        """;
-
+                    {
+                      "success": false,
+                      "message": "Unauthorized access. Please log in."
+                    }
+                    """;
                 response.getWriter().write(jsonResponse);
                 return;
             }

@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("event")
@@ -91,8 +92,11 @@ public class EventRestController {
     }
 
     @GetMapping("/control")
-    public void control() {
-        // Artık bu metot SessionFilter koruması altında.
-        // Oturum yoksa filtre 401 Unauthorized fırlatacak, istek buraya ulaşamayacak bile.
+    public ResponseEntity<Map<String, Object>> control() {
+        Map<String, Object> body = Map.of(
+                "success", true,
+                "message", "Session is valid."
+        );
+        return ResponseEntity.ok(body);
     }
 }
