@@ -58,10 +58,35 @@ public class EventService {
         return eventRepository.save(event);
     }
 
-    public List<Event> createAll(List<EventCreateRequestDto> eventCreateRequestDtos){
+    public List<Event> createAll(List<EventCreateRequestDto> eventCreateRequestDtos) {
+        // 1. Sisteme giriş yapmış olan kullanıcının bilgilerini Session'dan çekiyoruz
+        UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
+        if (sessionUser == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Etkinlik oluşturmak için oturum açmalısınız.");
+        }
+
+        // 2. Kullanıcının veritabanındaki güncel varlığını kontrol ediyoruz
+        User currentUser = userRepository.findById(sessionUser.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Oturum açan kullanıcı bulunamadı."));
+
+        // 3. DTO listesini işleyerek Event nesnelerine dönüştürüyoruz
         List<Event> eventList = eventCreateRequestDtos.stream()
-                .map(dto -> modelMapper.map(dto, Event.class))
+                .map(dto -> {
+                    // Çapraz alan doğrulaması: Tarih bugünse saatin geçmişte kalıp kalmadığı kontrol edilir
+                    if (dto.getEventDate() != null && dto.getEventTime() != null) {
+                        if (dto.getEventDate().isEqual(LocalDate.now()) && dto.getEventTime().isBefore(LocalTime.now())) {
+                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bugün için geçmiş bir saate etkinlik oluşturamazsınız: " + dto.getTitle());
+                        }
+                    }
+
+                    // Eşleme ve Owner/Participant atamaları
+                    Event event = modelMapper.map(dto, Event.class);
+                    event.setOwner(currentUser);
+                    event.getParticipants().add(currentUser);
+                    return event;
+                })
                 .toList();
+
         return eventRepository.saveAll(eventList);
     }
 
@@ -172,8 +197,13 @@ public class EventService {
 
         if (optionalEvent.isPresent()) {
             Event event = optionalEvent.get();
-            if (!event.getOwner().getId().equals(sessionUser.getId())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("success", false, "message", "Bu etkinliğin durumunu değiştirme yetkiniz bulunmuyor."));
+
+            // Defansif Programlama: Sahibi olmayan veya ID'si uyuşmayan istekleri doğrudan engelle
+            if (event.getOwner() == null || !event.getOwner().getId().equals(sessionUser.getId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "success", false,
+                        "message", "Bu etkinliğin durumunu değiştirme yetkiniz bulunmuyor."
+                ));
             }
 
             event.setStatus(newStatus);
