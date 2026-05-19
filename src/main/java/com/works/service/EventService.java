@@ -35,21 +35,13 @@ public class EventService {
     private final ModelMapper modelMapper = new ModelMapper();
 
     public Event create(EventCreateRequestDto eventCreateRequestDto) {
-        // Çapraz alan doğrulaması: Tarih bugünse saatin geçmişte kalıp kalmadığı kontrol edilir
-        // Çapraz alan doğrulaması öncesi Null kontrolü (Defansif Programlama)
         if (eventCreateRequestDto.getEventDate() != null && eventCreateRequestDto.getEventTime() != null) {
             if (eventCreateRequestDto.getEventDate().isEqual(LocalDate.now()) && eventCreateRequestDto.getEventTime().isBefore(LocalTime.now())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bugün için geçmiş bir saate etkinlik oluşturamazsınız.");
             }
         }
-
-        // DTO'yu normal Event nesnesine çeviriyoruz
         Event event = modelMapper.map(eventCreateRequestDto, Event.class);
-
-        // Sisteme giriş yapmış olan kullanıcının bilgilerini Session'dan çekiyoruz
         UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
-
-        // Optional ile kullanıcının veritabanında hala var olduğundan emin oluyoruz
         Optional<User> optionalUser = userRepository.findById(sessionUser.getId());
         if (optionalUser.isPresent()) {
             event.setOwner(optionalUser.get());
@@ -59,69 +51,69 @@ public class EventService {
     }
 
     public List<Event> createAll(List<EventCreateRequestDto> eventCreateRequestDtos) {
-        // 1. Sisteme giriş yapmış olan kullanıcının bilgilerini Session'dan çekiyoruz
         UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
         if (sessionUser == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Etkinlik oluşturmak için oturum açmalısınız.");
         }
-
-        // 2. Kullanıcının veritabanındaki güncel varlığını kontrol ediyoruz
         User currentUser = userRepository.findById(sessionUser.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Oturum açan kullanıcı bulunamadı."));
-
-        // 3. DTO listesini işleyerek Event nesnelerine dönüştürüyoruz
         List<Event> eventList = eventCreateRequestDtos.stream()
                 .map(dto -> {
-                    // Çapraz alan doğrulaması: Tarih bugünse saatin geçmişte kalıp kalmadığı kontrol edilir
                     if (dto.getEventDate() != null && dto.getEventTime() != null) {
                         if (dto.getEventDate().isEqual(LocalDate.now()) && dto.getEventTime().isBefore(LocalTime.now())) {
                             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bugün için geçmiş bir saate etkinlik oluşturamazsınız: " + dto.getTitle());
                         }
                     }
-
-                    // Eşleme ve Owner/Participant atamaları
                     Event event = modelMapper.map(dto, Event.class);
                     event.setOwner(currentUser);
                     event.getParticipants().add(currentUser);
                     return event;
                 })
                 .toList();
-
         return eventRepository.saveAll(eventList);
     }
 
     public ResponseEntity<Object> deleteOne(Long id) {
         UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
         Optional<Event> optionalEvent = eventRepository.findById(id);
-
         if (optionalEvent.isPresent()) {
             Event event = optionalEvent.get();
             if (!event.getOwner().getId().equals(sessionUser.getId())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("success", false, "message", "Bu etkinliği silme yetkiniz bulunmuyor."));
             }
             eventRepository.deleteById(id);
-            return ResponseEntity.ok().body(Map.of("success", true, "message", "Event deleted successfully."));
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "message", "Event not found id: " + id));
+            return ResponseEntity.ok().body(Map.of("success", true, "message", "Etkinlik başarıyla silindi."));
         }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "message", "Etkinlik bulunamadı. ID: " + id));
     }
 
-    public ResponseEntity<Object> update(EventUpdateRequestDto eventUpdateRequestDto) {
+    public ResponseEntity<Object> update(EventUpdateRequestDto dto) {
         UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
-        Optional<Event> optionalEvent = eventRepository.findById(eventUpdateRequestDto.getId());
+        Optional<Event> optionalEvent = eventRepository.findById(dto.getId());
 
         if (optionalEvent.isPresent()) {
             Event existingEvent = optionalEvent.get();
+
+            // Yetki kontrolü: sadece sahibi güncelleyebilir
             if (!existingEvent.getOwner().getId().equals(sessionUser.getId())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("success", false, "message", "Bu etkinliğin durumunu değiştirme yetkiniz bulunmuyor."));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("success", false, "message", "Bu etkinliği düzenleme yetkiniz bulunmuyor."));
             }
-            Event event = modelMapper.map(eventUpdateRequestDto, Event.class);
-            event.setOwner(existingEvent.getOwner());
-            eventRepository.save(event);
-            return ResponseEntity.ok().body(Map.of("success", true, "message", "Event updated successfully."));
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "message", "Event not found id: " + eventUpdateRequestDto.getId()));
+
+            // Sadece düzenlenebilir alanları güncelle —
+            // owner, participants ve status modelMapper ile EZİLMEZ
+            existingEvent.setTitle(dto.getTitle());
+            existingEvent.setDescription(dto.getDescription());
+            existingEvent.setEventDate(dto.getEventDate());
+            existingEvent.setEventTime(dto.getEventTime());
+            existingEvent.setLocation(dto.getLocation());
+            existingEvent.setCategory(dto.getCategory());
+
+            eventRepository.save(existingEvent);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Etkinlik başarıyla güncellendi."));
         }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("success", false, "message", "Etkinlik bulunamadı."));
     }
 
     public Page<Event> eventList(int page) {
@@ -140,7 +132,6 @@ public class EventService {
     public ResponseEntity<Object> joinEvent(Long eventId) {
         UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
         Optional<Event> optionalEvent = eventRepository.findById(eventId);
-
         if (optionalEvent.isPresent()) {
             Event event = optionalEvent.get();
             Optional<User> optionalUser = userRepository.findById(sessionUser.getId());
@@ -148,11 +139,9 @@ public class EventService {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "message", "Kullanıcı bulunamadı."));
             }
             User user = optionalUser.get();
-
             if (event.getParticipants().contains(user)) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("success", false, "message", "Bu etkinliğe zaten katıldınız."));
             }
-
             event.getParticipants().add(user);
             eventRepository.save(event);
             return ResponseEntity.ok(Map.of("success", true, "message", "Etkinliğe başarıyla katıldınız."));
@@ -163,7 +152,6 @@ public class EventService {
     public ResponseEntity<Object> leaveEvent(Long eventId) {
         UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
         Optional<Event> optionalEvent = eventRepository.findById(eventId);
-
         if (optionalEvent.isPresent()) {
             Event event = optionalEvent.get();
             Optional<User> optionalUser = userRepository.findById(sessionUser.getId());
@@ -171,11 +159,9 @@ public class EventService {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "message", "Kullanıcı bulunamadı."));
             }
             User user = optionalUser.get();
-
             if (!event.getParticipants().contains(user)) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("success", false, "message", "Bu etkinliğe zaten kayıtlı değilsiniz."));
             }
-
             event.getParticipants().remove(user);
             eventRepository.save(event);
             return ResponseEntity.ok(Map.of("success", true, "message", "Etkinlik katılımınız iptal edildi."));
@@ -194,18 +180,11 @@ public class EventService {
     public ResponseEntity<Object> changeStatus(Long eventId, EventStatus newStatus) {
         UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
         Optional<Event> optionalEvent = eventRepository.findById(eventId);
-
         if (optionalEvent.isPresent()) {
             Event event = optionalEvent.get();
-
-            // Defansif Programlama: Sahibi olmayan veya ID'si uyuşmayan istekleri doğrudan engelle
             if (event.getOwner() == null || !event.getOwner().getId().equals(sessionUser.getId())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
-                        "success", false,
-                        "message", "Bu etkinliğin durumunu değiştirme yetkiniz bulunmuyor."
-                ));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("success", false, "message", "Bu etkinliğin durumunu değiştirme yetkiniz bulunmuyor."));
             }
-
             event.setStatus(newStatus);
             eventRepository.save(event);
             return ResponseEntity.ok(Map.of("success", true, "message", "Etkinlik durumu başarıyla güncellendi: " + newStatus));
@@ -226,26 +205,14 @@ public class EventService {
     }
 
     public ResponseEntity<Object> getParticipants(Long eventId) {
-        // Oturumdaki aktif kullanıcı bilgilerini alıyoruz
         UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
         Optional<Event> optionalEvent = eventRepository.findById(eventId);
-
         if (optionalEvent.isPresent()) {
             Event event = optionalEvent.get();
-
-            // Güvenlik Kontrolü: Sadece etkinliğin sahibi katılımcıları listeleyebilir
             if (!event.getOwner().getId().equals(sessionUser.getId())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
-                        "success", false,
-                        "message", "Bu etkinliğin katılımcı listesini görme yetkiniz bulunmuyor."
-                ));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("success", false, "message", "Bu etkinliğin katılımcı listesini görme yetkiniz bulunmuyor."));
             }
-
-            // Yetki doğrulandıysa katılımcı listesini başarıyla döndürüyoruz
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "participants", event.getParticipants()
-            ));
+            return ResponseEntity.ok(Map.of("success", true, "participants", event.getParticipants()));
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "message", "Etkinlik bulunamadı."));
     }
