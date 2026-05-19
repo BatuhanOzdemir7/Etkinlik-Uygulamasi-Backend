@@ -29,6 +29,12 @@ public class SessionFilter implements Filter {
         response.setHeader("Pragma", "no-cache");
         response.setDateHeader("Expires", 0);
 
+        // CORS preflight — auth kontrolüne tabi tutma
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String urlPath = request.getRequestURI();
         String[] freeUrls = {"/user", "/kvkk", "/swagger-ui", "/v3/api-docs"};
 
