@@ -7,32 +7,30 @@ import com.works.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/user")
 public class UserRestController {
 
-    final UserService UserService;
+    final UserService userService;
 
     @PostMapping("/register")
     public ResponseEntity register(@Valid @RequestBody UserRegisterRequestDto userRegisterRequestDto) {
-        return UserService.register(userRegisterRequestDto);
+        return userService.register(userRegisterRequestDto);
     }
 
     @PostMapping("/login")
     public ResponseEntity login(@Valid @RequestBody UserLoginRequestDto userLoginRequestDto) {
-        return UserService.login(userLoginRequestDto);
+        return userService.login(userLoginRequestDto);
     }
 
     @PostMapping("/logout")
     public ResponseEntity<Object> logout() {
-        return UserService.logout();
+        return userService.logout();
     }
 
     /**
@@ -42,6 +40,24 @@ public class UserRestController {
      */
     @GetMapping("/me")
     public ResponseEntity<Object> me() {
-        return UserService.me();
+        return userService.me();
+    }
+
+    // Kendi tam profil sayfası — tüm etkinlikler dahil
+    @GetMapping("/profile/me")
+    public ResponseEntity<Object> profileMe() {
+        return userService.getProfileMe();
+    }
+
+    // Başka kullanıcının profili — gizlilik filtreli
+    @GetMapping("/profile/{id}")
+    public ResponseEntity<Object> profileById(@PathVariable Long id) {
+        return userService.getProfileById(id);
+    }
+
+    // Profil güncelleme — bio ve badge
+    @PutMapping("/profile/update")
+    public ResponseEntity<Object> updateProfile(@RequestBody Map<String, String> body) {
+        return userService.updateProfile(body.get("bio"), body.get("badge"));
     }
 }

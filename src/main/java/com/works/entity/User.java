@@ -41,4 +41,13 @@ public class User {
     @Column(length = 1000)
     private String password;
 
+    // Kullanıcının profil biyografisi — boş başlar, profil düzenleme ile güncellenir
+    @Column(length = 500)
+    private String bio;
+
+    // Kullanıcının sisteme göre atanan unvanı: NET_RUNNER, SİSTEM_MİMARI vb.
+    // Oluşturduğu/katıldığı etkinlik sayısına göre otomatik hesaplanabilir
+    // ya da kullanıcı tarafından seçilebilir
+    @Column(length = 100)
+    private String badge;
 }

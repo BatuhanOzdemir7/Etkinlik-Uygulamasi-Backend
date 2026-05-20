@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface EventRepository extends JpaRepository<Event, Long> {
 
     Page<Event> findByStatus(EventStatus status, Pageable pageable);
@@ -20,4 +22,14 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     );
 
     Page<Event> findByOwnerIdAndStatus(Long id, EventStatus status, Pageable pageable);
+
+    // Profil sayfası: kullanıcının sahibi olduğu TÜM etkinlikler (tüm statuslar)
+    List<Event> findByOwnerId(Long ownerId);
+
+    // Profil sayfası: kullanıcının sahibi olduğu belirli statustaki etkinlikler
+    List<Event> findByOwnerIdAndStatusIn(Long ownerId, List<EventStatus> statuses);
+
+    // Profil sayfası: kullanıcının katılımcı olduğu etkinlikler
+    // Spring Data JPA @ManyToMany ilişkisinde participants.id üzerinden sorgu üretir
+    List<Event> findByParticipantsId(Long userId);
 }

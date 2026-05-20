@@ -1,6 +1,10 @@
 package com.works.service;
 
+import com.works.dto.UserProfileDto;
+import com.works.entity.Event;
+import com.works.entity.EventStatus;
 import com.works.entity.User;
+import com.works.repository.EventRepository;
 import com.works.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +25,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class UserService {
 
-    final UserRepository UserRepository;
+    final UserRepository userRepository;
+    final EventRepository eventRepository;
     final HttpServletRequest request;
     ModelMapper modelMapper = new ModelMapper();
 
@@ -32,7 +37,7 @@ public class UserService {
                     "message", "Zaten giriş yapmış durumdasınız. Yeni kayıt açmak için lütfen önce çıkış (logout) yapın."
             ));
         }
-        List<User> UserList = UserRepository.findByEmailEqualsOrPhoneEqualsAllIgnoreCase(userRegisterRequestDto.getEmail(), userRegisterRequestDto.getPhone());
+        List<User> UserList = userRepository.findByEmailEqualsOrPhoneEqualsAllIgnoreCase(userRegisterRequestDto.getEmail(), userRegisterRequestDto.getPhone());
         if (UserList.size() > 0) {
             Map<String, Object> hm = Map.of("success", false, "message", "This email or phone number is already in use.");
             return ResponseEntity.badRequest().body(hm);
@@ -41,7 +46,7 @@ public class UserService {
         String hashPassword = BCrypt.hashpw(user.getPassword(), BCrypt.gensalt());
         user.setPassword(hashPassword);
         user.setEnabled(true);
-        UserRepository.save(user);
+        userRepository.save(user);
         return ResponseEntity.ok().body(user);
     }
 
@@ -52,7 +57,7 @@ public class UserService {
                     "message", "Sistemde zaten aktif bir oturumunuz bulunuyor."
             ));
         }
-        Optional<User> optionalUser = UserRepository.findByEnabledTrueAndEmailIgnoreCaseOrEnabledTrueAndPhoneIgnoreCase(UserLoginRequestDto.getUsername(), UserLoginRequestDto.getUsername());
+        Optional<User> optionalUser = userRepository.findByEnabledTrueAndEmailIgnoreCaseOrEnabledTrueAndPhoneIgnoreCase(UserLoginRequestDto.getUsername(), UserLoginRequestDto.getUsername());
         if (optionalUser.isPresent()) {
             User User = optionalUser.get();
             boolean isMatch = BCrypt.checkpw(UserLoginRequestDto.getPassword(), User.getPassword());
@@ -88,5 +93,94 @@ public class UserService {
                     .body(Map.of("success", false, "message", "Oturum bulunamadı."));
         }
         return ResponseEntity.ok(Map.of("success", true, "user", sessionUser));
+    }
+
+    /**
+     * Giriş yapan kullanıcının TAM profil bilgisi.
+     * Taslaklar ve arşivler dahil tüm etkinlikler döner.
+     */
+    public ResponseEntity<Object> getProfileMe() {
+        UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
+        Optional<User> optionalUser = userRepository.findById(sessionUser.getId());
+        if (optionalUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "Kullanıcı bulunamadı."));
+        }
+        User user = optionalUser.get();
+
+        // Sahibi olduğu TÜM etkinlikler (TASLAK, YAYINDA, ARŞİVLENDİ)
+        List<Event> hostedEvents = eventRepository.findByOwnerId(user.getId());
+
+        // Katılımcı olduğu etkinlikler
+        List<Event> joinedEvents = eventRepository.findByParticipantsId(user.getId());
+
+        UserProfileDto profile = new UserProfileDto(
+                user.getId(),
+                user.getName(),
+                user.getSurname(),
+                user.getEmail(),
+                user.getPhone(),
+                user.getBio(),
+                user.getBadge(),
+                hostedEvents.size(),
+                joinedEvents.size(),
+                hostedEvents,
+                joinedEvents
+        );
+
+        return ResponseEntity.ok(Map.of("success", true, "profile", profile));
+    }
+
+    /**
+     * Başka bir kullanıcının profili.
+     * Gizlilik filtresi: sadece YAYINDA etkinlikler döner.
+     */
+    public ResponseEntity<Object> getProfileById(Long id) {
+        Optional<User> optionalUser = userRepository.findById(id);
+        if (optionalUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "Kullanıcı bulunamadı."));
+        }
+        User user = optionalUser.get();
+
+        // Gizlilik filtresi: sadece yayındaki etkinlikler
+        List<Event> hostedEvents = eventRepository.findByOwnerIdAndStatusIn(
+                user.getId(), List.of(EventStatus.PUBLISHED)
+        );
+        List<Event> joinedEvents = eventRepository.findByParticipantsId(user.getId());
+
+        UserProfileDto profile = new UserProfileDto(
+                user.getId(),
+                user.getName(),
+                user.getSurname(),
+                user.getEmail(),
+                user.getPhone(),
+                user.getBio(),
+                user.getBadge(),
+                hostedEvents.size(),
+                joinedEvents.size(),
+                hostedEvents,
+                joinedEvents
+        );
+
+        return ResponseEntity.ok(Map.of("success", true, "profile", profile));
+    }
+
+    /**
+     * Kullanıcının bio ve badge bilgisini günceller.
+     * Sadece kendi profilini güncelleyebilir.
+     */
+    public ResponseEntity<Object> updateProfile(String bio, String badge) {
+        UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
+        Optional<User> optionalUser = userRepository.findById(sessionUser.getId());
+        if (optionalUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "Kullanıcı bulunamadı."));
+        }
+        User user = optionalUser.get();
+        if (bio != null) user.setBio(bio);
+        if (badge != null) user.setBadge(badge);
+        userRepository.save(user);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Profil güncellendi."));
     }
 }
