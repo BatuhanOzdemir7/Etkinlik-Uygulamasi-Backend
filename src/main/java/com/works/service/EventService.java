@@ -7,6 +7,7 @@ import com.works.entity.Event;
 import com.works.entity.EventStatus;
 import com.works.entity.User;
 import com.works.repository.EventRepository;
+import com.works.repository.EventSpecifications;
 import com.works.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -120,13 +122,22 @@ public class EventService {
         return eventRepository.findByStatus(EventStatus.PUBLISHED, PageRequest.of(page, 10));
     }
 
-    public Page<Event> search(String q, int page, String sortDir) {
+    public Page<Event> search(String q, int page, String sortDir, String category, String location, Boolean onlyFuture) {
         org.springframework.data.domain.Sort sort = org.springframework.data.domain.Sort.by(
                 sortDir.equalsIgnoreCase("desc") ? org.springframework.data.domain.Sort.Direction.DESC : org.springframework.data.domain.Sort.Direction.ASC,
                 "eventDate"
         );
+
+        // Sayfa başına 10 kayıt listelenecek şekilde ayarlandı
         Pageable pageable = PageRequest.of(page, 10, sort);
-        return eventRepository.searchActiveEvents(EventStatus.PUBLISHED, q, pageable);
+
+        // Specification oluşturuluyor
+        Specification<Event> spec = EventSpecifications.getSearchSpecification(
+                EventStatus.PUBLISHED, q, category, location, onlyFuture
+        );
+
+        // Repository üzerindeki findAll(Specification, Pageable) metodu tetikleniyor
+        return eventRepository.findAll(spec, pageable);
     }
 
     public ResponseEntity<Object> joinEvent(Long eventId) {
