@@ -7,6 +7,7 @@ import com.works.entity.User;
 import com.works.repository.EventRepository;
 import com.works.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -99,64 +100,50 @@ public class UserService {
      * Giriş yapan kullanıcının TAM profil bilgisi.
      * Taslaklar ve arşivler dahil tüm etkinlikler döner.
      */
-    public ResponseEntity<Object> getProfileMe() {
-        UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
-        Optional<User> optionalUser = userRepository.findById(sessionUser.getId());
+    public ResponseEntity<Object> getProfile(String nickname) {
+        // 1. Hedef kullanıcıyı nickname üzerinden veritabanından çek
+        Optional<User> optionalUser = userRepository.findByNicknameIgnoreCase(nickname);
         if (optionalUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("success", false, "message", "Kullanıcı bulunamadı."));
         }
-        User user = optionalUser.get();
+        User targetUser = optionalUser.get();
 
-        // Sahibi olduğu TÜM etkinlikler (TASLAK, YAYINDA, ARŞİVLENDİ)
-        List<Event> hostedEvents = eventRepository.findByOwnerId(user.getId());
+        // 2. Mevcut oturumu kontrol ederek profiline bakılan kişi ile oturum açan kişi aynı mı tespit et
+        boolean isOwnProfile = false;
+        HttpSession session = request.getSession(false); // Oturumu bir kez değişkene atıyoruz
 
-        // Katılımcı olduğu etkinlikler
-        List<Event> joinedEvents = eventRepository.findByParticipantsId(user.getId());
-
-        UserProfileDto profile = new UserProfileDto(
-                user.getId(),
-                user.getName(),
-                user.getSurname(),
-                user.getEmail(),
-                user.getPhone(),
-                user.getBio(),
-                user.getBadge(),
-                hostedEvents.size(),
-                joinedEvents.size(),
-                hostedEvents,
-                joinedEvents
-        );
-
-        return ResponseEntity.ok(Map.of("success", true, "profile", profile));
-    }
-
-    /**
-     * Başka bir kullanıcının profili.
-     * Gizlilik filtresi: sadece YAYINDA etkinlikler döner.
-     */
-    public ResponseEntity<Object> getProfileById(Long id) {
-        Optional<User> optionalUser = userRepository.findById(id);
-        if (optionalUser.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("success", false, "message", "Kullanıcı bulunamadı."));
+        if (session != null && session.getAttribute("user") != null) {
+            UserResponseDto sessionUser = (UserResponseDto) session.getAttribute("user");
+            if (sessionUser.getId().equals(targetUser.getId())) {
+                isOwnProfile = true;
+            }
         }
-        User user = optionalUser.get();
 
-        // Gizlilik filtresi: sadece yayındaki etkinlikler
-        List<Event> hostedEvents = eventRepository.findByOwnerIdAndStatusIn(
-                user.getId(), List.of(EventStatus.PUBLISHED)
-        );
-        List<Event> joinedEvents = eventRepository.findByParticipantsId(user.getId());
+        // 3. Etkinlikleri gizlilik durumuna göre getir
+        List<Event> hostedEvents;
+        if (isOwnProfile) {
+            // Kullanıcı kendi profiline bakıyor: TÜM etkinlikler (TASLAK, YAYINDA, ARŞİVLENDİ)
+            hostedEvents = eventRepository.findByOwnerId(targetUser.getId());
+        } else {
+            // Başka bir kullanıcıya bakılıyor: Sadece YAYINDA etkinlikler
+            hostedEvents = eventRepository.findByOwnerIdAndStatusIn(
+                    targetUser.getId(), List.of(EventStatus.PUBLISHED)
+            );
+        }
 
+        // Katılımcı olunan etkinlikler herkes için ortaktır
+        List<Event> joinedEvents = eventRepository.findByParticipantsId(targetUser.getId());
+
+        // 4. DTO Nesnesini oluştur ve yanıt dön
         UserProfileDto profile = new UserProfileDto(
-                user.getId(),
-                user.getName(),
-                user.getSurname(),
-                user.getEmail(),
-                user.getPhone(),
-                user.getBio(),
-                user.getBadge(),
+                targetUser.getId(),
+                targetUser.getName(),
+                targetUser.getSurname(),
+                targetUser.getEmail(),
+                targetUser.getPhone(),
+                targetUser.getBio(),
+                targetUser.getBadge(),
                 hostedEvents.size(),
                 joinedEvents.size(),
                 hostedEvents,

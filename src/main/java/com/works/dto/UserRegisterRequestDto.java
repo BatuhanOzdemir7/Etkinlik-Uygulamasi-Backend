@@ -10,6 +10,9 @@ import java.io.Serializable;
  */
 @Data
 public class UserRegisterRequestDto implements Serializable {
+    @NotNull @NotEmpty
+    @Size(min = 3, max = 50)
+    String nickname;
     @NotNull
     @Size(min = 2, max = 100)
     @NotEmpty

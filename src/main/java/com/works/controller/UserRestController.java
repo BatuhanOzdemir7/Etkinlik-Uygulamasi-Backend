@@ -43,16 +43,9 @@ public class UserRestController {
         return userService.me();
     }
 
-    // Kendi tam profil sayfası — tüm etkinlikler dahil
-    @GetMapping("/profile/me")
-    public ResponseEntity<Object> profileMe() {
-        return userService.getProfileMe();
-    }
-
-    // Başka kullanıcının profili — gizlilik filtreli
-    @GetMapping("/profile/{id}")
-    public ResponseEntity<Object> profileById(@PathVariable Long id) {
-        return userService.getProfileById(id);
+    @GetMapping("/profile/{nickname}")
+    public ResponseEntity<Object> getProfile(@PathVariable String nickname) {
+        return userService.getProfile(nickname);
     }
 
     // Profil güncelleme — bio ve badge
