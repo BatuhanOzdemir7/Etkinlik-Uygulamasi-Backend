@@ -52,11 +52,11 @@ public class EventRestController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "") String q,
             @RequestParam(defaultValue = "asc") String sortDir,
-            @RequestParam(required = false) String category,      // Yeni eklenen filtre
-            @RequestParam(required = false) String location,      // Yeni eklenen filtre
-            @RequestParam(required = false) Boolean onlyFuture    // Yeni eklenen filtre
-    ){
-        return eventService.search(q, page, sortDir, category, location, onlyFuture);
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String location,
+            @RequestParam(required = false) Boolean onlyFuture
+    ) {
+        return eventService.search(q, category, location, onlyFuture, page, sortDir);
     }
 
     @PostMapping("join/{id}")

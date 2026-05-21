@@ -34,6 +34,7 @@ public class EventRepositoryTest {
         User user = new User();
         user.setName("Batuhan");
         user.setSurname("Özdemir");
+        user.setNickname("batuhan_ozdemir");
         user.setEmail("batuhan@example.com");
         user.setPassword("pass123");
         userRepository.save(user);
@@ -75,6 +76,7 @@ public class EventRepositoryTest {
         User user = new User();
         user.setName("Ege");
         user.setSurname("Başaran");
+        user.setNickname("ege_basaran"); // BU SATIRI EKLEMELİSİN
         user.setEmail("ege@example.com");
         user.setPassword("pass123");
         User savedUser = userRepository.save(user);

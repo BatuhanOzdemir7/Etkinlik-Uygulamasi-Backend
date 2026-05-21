@@ -15,6 +15,7 @@ import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -122,21 +123,15 @@ public class EventService {
         return eventRepository.findByStatus(EventStatus.PUBLISHED, PageRequest.of(page, 10));
     }
 
-    public Page<Event> search(String q, int page, String sortDir, String category, String location, Boolean onlyFuture) {
-        org.springframework.data.domain.Sort sort = org.springframework.data.domain.Sort.by(
-                sortDir.equalsIgnoreCase("desc") ? org.springframework.data.domain.Sort.Direction.DESC : org.springframework.data.domain.Sort.Direction.ASC,
+    public Page<Event> search(String q, String category, String location, Boolean onlyFuture, int page, String sortDir) {
+        Sort sort = Sort.by(
+                sortDir.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC,
                 "eventDate"
         );
-
-        // Sayfa başına 10 kayıt listelenecek şekilde ayarlandı
         Pageable pageable = PageRequest.of(page, 10, sort);
-
-        // Specification oluşturuluyor
         Specification<Event> spec = EventSpecifications.getSearchSpecification(
                 EventStatus.PUBLISHED, q, category, location, onlyFuture
         );
-
-        // Repository üzerindeki findAll(Specification, Pageable) metodu tetikleniyor
         return eventRepository.findAll(spec, pageable);
     }
 

@@ -14,15 +14,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 @Repository
 public interface EventRepository extends JpaRepository<Event, Long>, JpaSpecificationExecutor<Event> {
-
     Page<Event> findByStatus(EventStatus status, Pageable pageable);
-
-    @Query("SELECT e FROM Event e WHERE e.status = :status AND (LOWER(e.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(e.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
-    Page<Event> searchActiveEvents(
-            @Param("status") EventStatus status,
-            @Param("keyword") String keyword,
-            Pageable pageable
-    );
 
     Page<Event> findByOwnerIdAndStatus(Long id, EventStatus status, Pageable pageable);
 
@@ -31,8 +23,6 @@ public interface EventRepository extends JpaRepository<Event, Long>, JpaSpecific
 
     // Profil sayfası: kullanıcının sahibi olduğu belirli statustaki etkinlikler
     List<Event> findByOwnerIdAndStatusIn(Long ownerId, List<EventStatus> statuses);
-
-    List<Event> findByParticipantsContainingAndStatus(User user, EventStatus status);
 
     // Profil sayfası: kullanıcının katılımcı olduğu etkinlikler
     // Spring Data JPA @ManyToMany ilişkisinde participants.id üzerinden sorgu üretir

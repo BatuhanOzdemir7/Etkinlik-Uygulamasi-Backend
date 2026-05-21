@@ -34,12 +34,14 @@ public class EventSpecifications {
 
             // 3. Kural: Kategori filtresi seçilmişse
             if (category != null && !category.trim().isEmpty()) {
-                predicates.add(criteriaBuilder.equal(root.get("category"), category));
+                String categoryPattern = "%" + category.toLowerCase() + "%";
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("category")), categoryPattern));
             }
 
-            // 4. Kural: Konum filtresi seçilmişse
+            // 4. Kural: Konum filtresi seçilmişse (İçerir mantığına çevrildi)
             if (location != null && !location.trim().isEmpty()) {
-                predicates.add(criteriaBuilder.equal(root.get("location"), location));
+                String locationPattern = "%" + location.toLowerCase() + "%";
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("location")), locationPattern));
             }
 
             // 5. Kural: Sadece gelecekteki etkinlikler istenmişse (DÜZELTİLEN KISIM)
