@@ -181,11 +181,30 @@ public class EventService {
     }
 
     public ResponseEntity<Object> getEventDetail(Long id) {
-        return eventRepository.findById(id).map(event ->
-                ResponseEntity.ok((Object) Map.of("success", true, "event", event))
-        ).orElseGet(() ->
-                ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "message", "Etkinlik bulunamadı."))
-        );
+        // Oturum açmış kullanıcıyı al (Anonymous da olabilir)
+        UserResponseDto sessionUser = (UserResponseDto) request.getSession().getAttribute("user");
+
+        Optional<Event> optionalEvent = eventRepository.findById(id);
+
+        if (optionalEvent.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "Etkinlik bulunamadı."));
+        }
+
+        Event event = optionalEvent.get();
+
+        // GÜVENLİK KONTROLÜ:
+        // Etkinlik PUBLISHED değilse, sadece sahibi görebilir.
+        if (!EventStatus.PUBLISHED.equals(event.getStatus())) {
+
+            // Eğer sessionUser null ise veya sahibi değilse erişimi engelle
+            if (sessionUser == null || !event.getOwner().getId().equals(sessionUser.getId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("success", false, "message", "Bu etkinlik henüz yayımlanmamıştır."));
+            }
+        }
+
+        return ResponseEntity.ok(Map.of("success", true, "event", event));
     }
 
     public ResponseEntity<Object> changeStatus(Long eventId, EventStatus newStatus) {
