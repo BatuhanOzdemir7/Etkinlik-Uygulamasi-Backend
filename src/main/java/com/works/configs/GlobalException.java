@@ -1,6 +1,7 @@
 package com.works.configs;
 
-
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -16,6 +17,7 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalException {
 
+    // 1. Validation Hataları
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity handleMethodArgumentNotValidException(MethodArgumentNotValidException e){
         List<HashMap<String, Object>> errors = parseError(e.getFieldErrors());
@@ -34,9 +36,9 @@ public class GlobalException {
         return errors;
     }
 
+    // 2. Parametre Tip Uyuşmazlığı Hataları
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<?> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
-
         String paramName = ex.getName();
         Object value = ex.getValue();
         Class<?> requiredType = ex.getRequiredType();
@@ -63,6 +65,25 @@ public class GlobalException {
         return ResponseEntity.badRequest().body(error);
     }
 
+    // 3.Kayıt Bulunamadı (404 Not Found)
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<Object> handleEntityNotFoundException(EntityNotFoundException ex) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("success", false);
+        error.put("message", ex.getMessage() != null ? ex.getMessage() : "İstenen kayıt veritabanında bulunamadı.");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    // 4.Yetkisiz İşlem (401 Unauthorized / 403 Forbidden)
+    @ExceptionHandler(SecurityException.class)
+    public ResponseEntity<Object> handleSecurityException(SecurityException ex) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("success", false);
+        error.put("message", ex.getMessage() != null ? ex.getMessage() : "Bu işlemi gerçekleştirmek için yetkiniz bulunmamaktadır.");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+    }
+
+    // 5. Sistem Hataları (500 Internal Server Error)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Object> handleAllUncaughtException(Exception ex) {
         Map<String, Object> error = new HashMap<>();
@@ -72,7 +93,6 @@ public class GlobalException {
         // Geliştirme aşamasında hatanın ne olduğunu konsolda görebilmek için:
         ex.printStackTrace();
 
-        // 500 Internal Server Error durum kodu ile standart JSON yanıtı dönüyoruz
-        return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 }
